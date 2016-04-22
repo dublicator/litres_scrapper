@@ -90,7 +90,7 @@ function run(db){
 		} else {
 			throw new Error("Not implemented");
 		}
-	}, {concurrent: 5, priority: function (result, cb) {
+	}, {concurrent: 5, afterProcessDelay: 3000, priority: function (result, cb) {
 		if(result.type==="page") return cb(null, 100);
 		if(result.type==="categories") return cb(null, 200);
 		if(result.type==="category") return cb(null, 50);
