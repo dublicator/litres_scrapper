@@ -23,7 +23,15 @@ function initDatabase(callback) {
 	});
 }
 
-function updateRow(db, title, description, age_limit, author, url, year) {
+var checkUrlExists = function (db, url) {
+	var statement = db.prepare("SELECT * from books where url=?");
+	statement.get(url, function (err, row) {
+		return row!=undefined;
+	});
+	statement.finalize();
+};
+
+function insertBook(db, title, description, age_limit, author, url, year) {
 	// Insert some data.
 	var statement = db.prepare("INSERT OR IGNORE INTO books VALUES (NULL, ?,?,?,?,?,?)");
 	statement.run(title, description, age_limit, author, url, year);
@@ -73,17 +81,23 @@ function run(db){
 				cb(null);
 			});
 		} else if(result.type === "page") {
-			console.log("Fetching page "+ result.url);
-			fetchPage(result.url, function (body) {
-				var $ = cheerio.load(body);
-				var title = $("h1.book-title").text().trim();
-				var description = $(".book_annotation").text();
-				var age_limit = null;//todo
-				var author = $(".book-author .h2 nobr a").text().trim();
-				var year = null;//todo
-				updateRow(db, title, description, age_limit, author, result.url, year);
+			var statement = db.prepare("SELECT * from books where url=?");
+			statement.get(result.url, function (err, row) {
+				if(row===undefined){
+					console.log("Fetching page "+ result.url);
+					fetchPage(result.url, function (body) {
+						var $ = cheerio.load(body);
+						var title = $("h1.book-title").text().trim();
+						var description = $(".book_annotation").text();
+						var age_limit = null;//todo
+						var author = $(".book-author .h2 nobr a").text().trim();
+						var year = null;//todo
+						insertBook(db, title, description, age_limit, author, result.url, year);
+					});
+				}
 				cb(null);
 			});
+			statement.finalize();
 		} else {
 			throw new Error("Not implemented");
 		}
