@@ -3,7 +3,6 @@
 var cheerio = require("cheerio");
 var request = require("request");
 var sqlite3 = require("sqlite3").verbose();
-var Promise = require("bluebird");
 var Queue = require('better-queue');
 
 function initDatabase(callback) {
@@ -23,26 +22,11 @@ function initDatabase(callback) {
 	});
 }
 
-var checkUrlExists = function (db, url) {
-	var statement = db.prepare("SELECT * from books where url=?");
-	statement.get(url, function (err, row) {
-		return row!=undefined;
-	});
-	statement.finalize();
-};
-
 function insertBook(db, title, description, age_limit, author, url, year) {
 	// Insert some data.
 	var statement = db.prepare("INSERT OR IGNORE INTO books VALUES (NULL, ?,?,?,?,?,?)");
 	statement.run(title, description, age_limit, author, url, year);
 	statement.finalize();
-}
-
-function readRows(db) {
-	// Read some data.
-	db.each("SELECT rowid AS id, title FROM books", function(err, row) {
-		console.log(row.id + ": " + row.title);
-	});
 }
 
 function fetchPage(url, callback) {

@@ -1,7 +1,6 @@
 {
   "dependencies": {
     "better-queue": "^3.5.0",
-    "bluebird": "^3.3.5",
     "cheerio": "latest",
     "request": "latest",
     "sqlite3": "latest"
