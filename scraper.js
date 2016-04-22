@@ -4,6 +4,7 @@ var cheerio = require("cheerio");
 var request = require("request");
 var sqlite3 = require("sqlite3").verbose();
 var Promise = require("bluebird");
+var Queue = require('better-queue');
 
 function initDatabase(callback) {
 	// Set up sqlite database.
@@ -40,30 +41,56 @@ function fetchPage(url, callback) {
 	});
 }
 
-function run(db) {
-	// Use request to read in pages.
-	new Promise(function (resolve, reject) {
-		fetchPage("http://www.litres.ru/zhanry/", function (body) {
-			// Use cheerio to find things in the page with css selectors.
-			var $ = cheerio.load(body);
-
-			var elements = $("#genres_tree li div.title a").each(function () {
-				var href = "http://www.litres.ru" + $(this).attr("href");
-				console.log("Fetching "+href);
-				fetchPage(href, function (childBody) {
-					var $ = cheerio.load(childBody);
-
-					var childElements = $(".newbook .booktitle a.title").each(function () {
-						var value = $(this).text().trim();
-						updateRow(db, value);
-					});
+function run(db){
+	var q = new Queue(function (result, cb) {
+		if(result.type==="categories"){
+			console.log("Fetching page " + result.url);
+			fetchPage(result.url, function (body) {
+				var $ = cheerio.load(body);
+				$("#genres_tree li div.title a").each(function () {
+					var href = "http://www.litres.ru" + $(this).attr("href");
+					q.push({type: "category", url: href});
 				});
+				cb(null);
 			});
+		}
+		else if(result.type==="category"){
+			console.log("Fetching page "+ result.url);
+			fetchPage(result.url, function (body) {
+				var $ = cheerio.load(body);
+				$(".newbook .booktitle a.title").each(function () {
+					var href = "http://www.litres.ru" + $(this).attr("href");
+					q.push({type: "page", url: href});
+				});
+				cb(null);
+			});
+		} else if(result.type === "page") {
+			console.log("Fetching page "+ result.url);
+			fetchPage(result.url, function (body) {
+				var $ = cheerio.load(body);
+				var title = $("h1.book-title").text().trim();
+				updateRow(db, title);
+				cb(null);
+			});
+		} else {
+			throw new Error("Not implemented");
+		}
+	}, {concurrent: 5})
+		.on('task_finish', function (taskId, result, stats) {
+			//console.log("Task succeeded with "+result);
+		})
+		.on('task_failed', function (taskId, err, stats) {
+			console.error("Task failed: " + err);
+			// Handle error, stats = { elapsed: <time taken> }
+		})
+		.on('drain', function (){
+			console.log("All tasks finished");
+			db.close();
+			process.exit();
 		});
-		resolve();
-	})
-		.then(readRows(db));
-		//.then(db.close());
+
+	var page = {type: "categories", url: "http://www.litres.ru/zhanry/"};
+	q.push(page);
 }
 
 initDatabase(run);
