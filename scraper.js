@@ -10,21 +10,29 @@ function initDatabase(callback) {
 	// Set up sqlite database.
 	var db = new sqlite3.Database("data.sqlite");
 	db.serialize(function() {
-		db.run("CREATE TABLE IF NOT EXISTS book (title TEXT)");
+		var sql = "CREATE TABLE IF NOT EXISTS books (" +
+			"Id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT" +
+			", title TEXT  NOT NULL" +
+			", description TEXT NULL" +
+			", age_limit TEXT  NULL" +
+			", author TEXT NULL" +
+			", url TEXT  UNIQUE NOT NULL" +
+			", year INTEGER  NULL)";
+		db.run(sql);
 		callback(db);
 	});
 }
 
-function updateRow(db, value) {
+function updateRow(db, title, description, age_limit, author, url, year) {
 	// Insert some data.
-	var statement = db.prepare("INSERT INTO book VALUES (?)");
-	statement.run(value);
+	var statement = db.prepare("INSERT OR IGNORE INTO books VALUES (NULL, ?,?,?,?,?,?)");
+	statement.run(title, description, age_limit, author, url, year);
 	statement.finalize();
 }
 
 function readRows(db) {
 	// Read some data.
-	db.each("SELECT rowid AS id, title FROM book", function(err, row) {
+	db.each("SELECT rowid AS id, title FROM books", function(err, row) {
 		console.log(row.id + ": " + row.title);
 	});
 }
@@ -69,7 +77,11 @@ function run(db){
 			fetchPage(result.url, function (body) {
 				var $ = cheerio.load(body);
 				var title = $("h1.book-title").text().trim();
-				updateRow(db, title);
+				var description = $(".book_annotation").text();
+				var age_limit = null;//todo
+				var author = $(".book-author .h2 nobr a").text().trim();
+				var year = null;//todo
+				updateRow(db, title, description, age_limit, author, result.url, year);
 				cb(null);
 			});
 		} else {
