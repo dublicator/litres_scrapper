@@ -1,7 +1,8 @@
 {
-	"dependencies": {
-		"cheerio": "latest",
-		"request": "latest",
-		"sqlite3": "latest"
-	}
+  "dependencies": {
+    "bluebird": "^3.3.5",
+    "cheerio": "latest",
+    "request": "latest",
+    "sqlite3": "latest"
+  }
 }

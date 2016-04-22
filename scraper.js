@@ -3,27 +3,28 @@
 var cheerio = require("cheerio");
 var request = require("request");
 var sqlite3 = require("sqlite3").verbose();
+var Promise = require("bluebird");
 
 function initDatabase(callback) {
 	// Set up sqlite database.
 	var db = new sqlite3.Database("data.sqlite");
 	db.serialize(function() {
-		db.run("CREATE TABLE IF NOT EXISTS data (name TEXT)");
+		db.run("CREATE TABLE IF NOT EXISTS book (title TEXT)");
 		callback(db);
 	});
 }
 
 function updateRow(db, value) {
 	// Insert some data.
-	var statement = db.prepare("INSERT INTO data VALUES (?)");
+	var statement = db.prepare("INSERT INTO book VALUES (?)");
 	statement.run(value);
 	statement.finalize();
 }
 
 function readRows(db) {
 	// Read some data.
-	db.each("SELECT rowid AS id, name FROM data", function(err, row) {
-		console.log(row.id + ": " + row.name);
+	db.each("SELECT rowid AS id, title FROM book", function(err, row) {
+		console.log(row.id + ": " + row.title);
 	});
 }
 
@@ -41,19 +42,28 @@ function fetchPage(url, callback) {
 
 function run(db) {
 	// Use request to read in pages.
-	fetchPage("https://morph.io", function (body) {
-		// Use cheerio to find things in the page with css selectors.
-		var $ = cheerio.load(body);
+	new Promise(function (resolve, reject) {
+		fetchPage("http://www.litres.ru/zhanry/", function (body) {
+			// Use cheerio to find things in the page with css selectors.
+			var $ = cheerio.load(body);
 
-		var elements = $("div.media-body span.p-name").each(function () {
-			var value = $(this).text().trim();
-			updateRow(db, value);
+			var elements = $("#genres_tree li div.title a").each(function () {
+				var href = "http://www.litres.ru" + $(this).attr("href");
+				console.log("Fetching "+href);
+				fetchPage(href, function (childBody) {
+					var $ = cheerio.load(childBody);
+
+					var childElements = $(".newbook .booktitle a.title").each(function () {
+						var value = $(this).text().trim();
+						updateRow(db, value);
+					});
+				});
+			});
 		});
-
-		readRows(db);
-
-		db.close();
-	});
+		resolve();
+	})
+		.then(readRows(db));
+		//.then(db.close());
 }
 
 initDatabase(run);
