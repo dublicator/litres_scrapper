@@ -48,7 +48,7 @@ function run(db){
 			fetchPage(result.url, function (body) {
 				var $ = cheerio.load(body);
 				$("#genres_tree li div.title a").each(function () {
-					var href = "http://www.litres.ru" + $(this).attr("href");
+					var href = "http://www.litres.ru" + $(this).attr("href")+"elektronnie-knigi/?limit=120";
 					q.push({type: "category", url: href});
 				});
 				cb(null);
