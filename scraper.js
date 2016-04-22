@@ -48,7 +48,7 @@ function run(db){
 			fetchPage(result.url, function (body) {
 				var $ = cheerio.load(body);
 				$("#genres_tree li div.title a").each(function () {
-					var href = "http://www.litres.ru" + $(this).attr("href")+"elektronnie-knigi/?limit=120";
+					var href = "http://www.litres.ru" + $(this).attr("href")+"elektronnie-knigi/novie/page-1/?limit=60";
 					q.push({type: "category", url: href});
 				});
 				cb(null);
@@ -58,6 +58,11 @@ function run(db){
 			console.log("Fetching page "+ result.url);
 			fetchPage(result.url, function (body) {
 				var $ = cheerio.load(body);
+				var pageCount = parseInt($(".paginator_pages").text().match(/(\d+)$/)[1]);
+				for (var i = 2; i <= pageCount; i++) {
+					var href = result.url.replace("/page-1/", "/page-"+i+"/");
+					q.push({type: "category", url: href});
+				}
 				$(".newbook .booktitle a.title").each(function () {
 					var href = "http://www.litres.ru" + $(this).attr("href");
 					q.push({type: "page", url: href});
@@ -85,7 +90,12 @@ function run(db){
 		} else {
 			throw new Error("Not implemented");
 		}
-	}, {concurrent: 5})
+	}, {concurrent: 5, priority: function (result, cb) {
+		if(result.type==="page") return cb(null, 100);
+		if(result.type==="categories") return cb(null, 200);
+		if(result.type==="category") return cb(null, 50);
+		cb(null, 50);
+	}})
 		.on('task_finish', function (taskId, result, stats) {
 			//console.log("Task succeeded with "+result);
 		})
